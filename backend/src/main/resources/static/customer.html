@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="navbar">
+        <h2>Welcome, <span id="customerName"></span></h2>
+        <button onclick="logout()">Logout</button>
+    </div>
+    
+    <div class="dashboard">
+        <div class="sidebar">
+            <h3>Customer Menu</h3>
+            <ul>
+                <li><a href="#" onclick="showSection('dashboard')">Dashboard</a></li>
+                <li><a href="#" onclick="showSection('accounts')">My Accounts</a></li>
+                <li><a href="#" onclick="showSection('deposit')">Deposit</a></li>
+                <li><a href="#" onclick="showSection('withdraw')">Withdraw</a></li>
+                <li><a href="#" onclick="showSection('transactions')">Transactions</a></li>
+            </ul>
+        </div>
+        
+        <div class="main-content">
+            <div id="message" class="message" style="display: none;"></div>
+            
+            <!-- Dashboard Section -->
+            <div id="dashboard-section">
+                <h2>Dashboard</h2>
+                <div class="card">
+                    <h3>Welcome to Your Banking Portal</h3>
+                    <p>Use the menu to manage your accounts and transactions.</p>
+                </div>
+            </div>
+            
+            <!-- My Accounts Section -->
+            <div id="accounts-section" style="display: none;">
+                <h2>My Accounts</h2>
+                <button class="btn btn-success" onclick="showCreateAccountModal()">
+                    Create New Account
+                </button>
+                <div id="accountsList"></div>
+            </div>
+            
+            <!-- Deposit Section -->
+            <div id="deposit-section" style="display: none;">
+                <h2>Deposit Money</h2>
+                <div class="card">
+                    <form id="depositForm">
+                        <div class="form-group">
+                            <label for="depositAccount">Select Account</label>
+                            <select id="depositAccount" name="accountNumber" required></select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="depositAmount">Amount</label>
+                            <input type="number" id="depositAmount" name="amount" min="1" required>
+                        </div>
+                        
+                        <button type="submit" class="btn">Deposit</button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Withdraw Section -->
+            <div id="withdraw-section" style="display: none;">
+                <h2>Withdraw Money</h2>
+                <div class="card">
+                    <form id="withdrawForm">
+                        <div class="form-group">
+                            <label for="withdrawAccount">Select Account</label>
+                            <select id="withdrawAccount" name="accountNumber" required></select>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="withdrawAmount">Amount</label>
+                            <input type="number" id="withdrawAmount" name="amount" min="1" required>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-danger">Withdraw</button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Transactions Section -->
+            <div id="transactions-section" style="display: none;">
+                <h2>Transaction History</h2>
+                <div class="form-group">
+                    <label for="transactionAccount">Select Account</label>
+                    <select id="transactionAccount" name="accountNumber" onchange="loadTransactions()"></select>
+                </div>
+                <div id="transactionsList"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Create Account Modal -->
+    <div id="createAccountModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('createAccountModal')">&times;</span>
+            <h3>Create New Account</h3>
+            <form id="createAccountForm">
+                <div class="form-group">
+                    <label for="accountType">Account Type</label>
+                    <select id="accountType" name="accountType" required>
+                        <option value="SAVINGS">Savings Account</option>
+                        <option value="CURRENT">Current Account</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-success">Create Account</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+    <script>
+        // Check authentication
+        if (!checkAuth() || currentUser.role !== 'CUSTOMER') {
+            window.location.href = 'index.html';
+        }
+        
+        // Set customer name
+        document.getElementById('customerName').textContent = currentUser.fullName;
+        
+        // Show section function
+        function showSection(section) {
+            // Hide all sections
+            document.querySelectorAll('[id$="-section"]').forEach(el => {
+                el.style.display = 'none';
+            });
+            // Show selected section
+            document.getElementById(section + '-section').style.display = 'block';
+            
+            // Load data for section
+            if (section === 'accounts') {
+                loadAccounts();
+            } else if (section === 'deposit' || section === 'withdraw' || section === 'transactions') {
+                loadAccountOptions();
+            }
+        }
+        
+        // Load customer accounts
+        async function loadAccounts() {
+            const response = await makeRequest(
+                `${API_BASE}/bank/user/accounts/${currentUser.id}`,
+                'GET'
+            );
+            
+            if (response.success) {
+                const accountsList = document.getElementById('accountsList');
+                if (response.accounts && response.accounts.length > 0) {
+                    let html = '<table>';
+                    html += '<tr><th>Account Number</th><th>Type</th><th>Balance</th><th>Created</th></tr>';
+                    
+                    response.accounts.forEach(account => {
+                        html += `
+                            <tr>
+                                <td>${account.accountNumber}</td>
+                                <td>${account.accountType}</td>
+                                <td>$${account.balance.toFixed(2)}</td>
+                                <td>${new Date(account.createdAt).toLocaleDateString()}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += '</table>';
+                    accountsList.innerHTML = html;
+                } else {
+                    accountsList.innerHTML = '<p>No accounts found. Create your first account!</p>';
+                }
+            }
+        }
+        
+        // Load account options for dropdowns
+        async function loadAccountOptions() {
+            const response = await makeRequest(
+                `${API_BASE}/bank/user/accounts/${currentUser.id}`,
+                'GET'
+            );
+            
+            if (response.success) {
+                const dropdowns = [
+                    'depositAccount',
+                    'withdrawAccount',
+                    'transactionAccount'
+                ];
+                
+                dropdowns.forEach(dropdownId => {
+                    const dropdown = document.getElementById(dropdownId);
+                    if (dropdown) {
+                        dropdown.innerHTML = '<option value="">Select Account</option>';
+                        
+                        if (response.accounts && response.accounts.length > 0) {
+                            response.accounts.forEach(account => {
+                                const option = document.createElement('option');
+                                option.value = account.accountNumber;
+                                option.textContent = `${account.accountNumber} (${account.accountType}) - $${account.balance.toFixed(2)}`;
+                                dropdown.appendChild(option);
+                            });
+                        }
+                    }
+                });
+            }
+        }
+        
+        // Create Account Modal
+        function showCreateAccountModal() {
+            document.getElementById('createAccountModal').style.display = 'block';
+        }
+        
+        function closeModal(modalId) {
+            document.getElementById(modalId).style.display = 'none';
+        }
+        
+        // Create Account Form
+        document.getElementById('createAccountForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const accountType = document.getElementById('accountType').value;
+            
+            const response = await makeRequest(
+                `${API_BASE}/bank/account/create`,
+                'POST',
+                {
+                    userId: currentUser.id,
+                    accountType: accountType
+                }
+            );
+            
+            if (response.success) {
+                showMessage('success', 'Account created successfully!');
+                closeModal('createAccountModal');
+                loadAccounts();
+                loadAccountOptions();
+            } else {
+                showMessage('error', response.message || 'Failed to create account');
+            }
+        });
+        
+        // Deposit Form
+        document.getElementById('depositForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const accountNumber = document.getElementById('depositAccount').value;
+            const amount = document.getElementById('depositAmount').value;
+            
+            const response = await makeRequest(
+                `${API_BASE}/bank/account/deposit`,
+                'POST',
+                { accountNumber, amount: parseFloat(amount) }
+            );
+            
+            if (response.success) {
+                showMessage('success', `Successfully deposited $${amount}`);
+                document.getElementById('depositForm').reset();
+                loadAccountOptions();
+                loadAccounts();
+            } else {
+                showMessage('error', response.message || 'Deposit failed');
+            }
+        });
+        
+        // Withdraw Form
+        document.getElementById('withdrawForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const accountNumber = document.getElementById('withdrawAccount').value;
+            const amount = document.getElementById('withdrawAmount').value;
+            
+            const response = await makeRequest(
+                `${API_BASE}/bank/account/withdraw`,
+                'POST',
+                { accountNumber, amount: parseFloat(amount) }
+            );
+            
+            if (response.success) {
+                showMessage('success', `Successfully withdrawn $${amount}`);
+                document.getElementById('withdrawForm').reset();
+                loadAccountOptions();
+                loadAccounts();
+            } else {
+                showMessage('error', response.message || 'Withdrawal failed');
+            }
+        });
+        
+        // Load transactions
+        async function loadTransactions() {
+            const accountNumber = document.getElementById('transactionAccount').value;
+            
+            if (!accountNumber) return;
+            
+            const response = await makeRequest(
+                `${API_BASE}/bank/account/transactions/${accountNumber}`,
+                'GET'
+            );
+            
+            if (response.success) {
+                const transactionsList = document.getElementById('transactionsList');
+                if (response.transactions && response.transactions.length > 0) {
+                    let html = '<table>';
+                    html += '<tr><th>Type</th><th>Amount</th><th>Description</th><th>Date</th></tr>';
+                    
+                    response.transactions.forEach(transaction => {
+                        html += `
+                            <tr>
+                                <td>${transaction.transactionType}</td>
+                                <td>$${transaction.amount.toFixed(2)}</td>
+                                <td>${transaction.description}</td>
+                                <td>${new Date(transaction.timestamp).toLocaleString()}</td>
+                            </tr>
+                        `;
+                    });
+                    
+                    html += '</table>';
+                    transactionsList.innerHTML = html;
+                } else {
+                    transactionsList.innerHTML = '<p>No transactions found for this account.</p>';
+                }
+            }
+        }
+        
+        // Initialize dashboard
+        showSection('dashboard');
+    </script>
+</body>
+</html>

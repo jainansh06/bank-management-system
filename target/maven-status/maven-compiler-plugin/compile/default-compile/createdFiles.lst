@@ -1,0 +1,11 @@
+com\bank\service\AuthService.class
+com\bank\repository\UserRepository.class
+com\bank\model\Account.class
+com\bank\service\BankService.class
+com\bank\controller\AuthController.class
+com\bank\model\User.class
+com\bank\repository\TransactionRepository.class
+com\bank\repository\AccountRepository.class
+com\bank\controller\BankController.class
+com\bank\model\Transaction.class
+com\bank\BankManagementApplication.class
